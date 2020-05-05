@@ -190,6 +190,9 @@ class GcpResourceProbe
 end
 
 class GcpApiConnection
+  # puts "Zeroing the GCP cache"
+  @@gcp_cache ||= {}
+
   def initialize
     @service_account_file = ENV['GOOGLE_APPLICATION_CREDENTIALS']
   end
@@ -208,6 +211,16 @@ class GcpApiConnection
   end
 
   def fetch(base_url, template, var_data, request_type = 'Get', body = nil)
+    cache_key={base_url:base_url, template:template, var_data:var_data, request_type:request_type, body:body}.to_s
+    # if @@gcp_cache[cache_key].nil?
+    #   puts "fetch caching #{cache_key}"
+    # else
+    #   puts "fetch recover #{cache_key}"
+    # end
+    @@gcp_cache[cache_key] ||= fetch_cached(base_url, template, var_data, request_type, body)
+  end
+
+  def fetch_cached(base_url, template, var_data, request_type = 'Get', body = nil)
     get_request = Network::Base.new(
       build_uri(base_url, template, var_data),
       fetch_auth,
@@ -218,7 +231,13 @@ class GcpApiConnection
   end
 
   def fetch_all(base_url, template, var_data, request_type = 'Get')
-    next_page(build_uri(base_url, template, var_data), request_type)
+    cache_key = {base_url:base_url, template:template, var_data:var_data, request_type:request_type }.to_s
+    # if @@gcp_cache[cache_key].nil?
+    #   puts "fetchall caching #{cache_key}"
+    # else
+    #   puts "fetchall recover #{cache_key}"
+    # end
+    @@gcp_cache[cache_key] ||= next_page(build_uri(base_url, template, var_data), request_type)
   end
 
   def next_page(uri, request_type, token = nil)
